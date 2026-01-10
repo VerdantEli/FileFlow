@@ -25,7 +25,7 @@ class Database:
     
     def getLogs(self):
         cursor = self.connection.cursor()
-        cursor.execute("SELECT * FROM logs")
+        cursor.execute("SELECT * FROM logs ORDER BY timestamp DESC")
         data = cursor.fetchmany(5)
         return data
 

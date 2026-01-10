@@ -15,7 +15,10 @@ class Organizer:
             "jpg": "Images", "png": "Images", "jpeg": "Images", 
             "docx" : "Documents", "pptx" : "Documents", "xlsx" : "Documents", "pdf" : "Documents",
             "mp3" : "Audio",
-            "mp4" : "Videos"
+            "mp4" : "Videos",
+            "zip" : "Archives", "rar" : "Archives",
+            "txt" : "TextFiles",
+            "exe" : "Executables"
         }
 
     def organize(self):
