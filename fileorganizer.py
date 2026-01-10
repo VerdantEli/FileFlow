@@ -1,10 +1,15 @@
 import os
 import glob
 import shutil
-from gui import *
+import datetime
+from database import Database
 
 class Organizer:
     def __init__(self,path):
+        self.db=Database()
+        self.db.connect()
+        self.db.tableCreation()
+
         self.path = path
         self.extensions = {
             "jpg": "Images", "png": "Images", "jpeg": "Images", 
@@ -20,6 +25,8 @@ class Organizer:
                 os.mkdir(os.path.join(self.path, folderName))
 
             for file in files:
+                currentTime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 basename = os.path.basename(file)
                 dst = os.path.join(self.path, folderName, basename)
                 shutil.move(file, dst)
+                self.db.inputLogs(currentTime,"Moved!",basename,file,dst)
