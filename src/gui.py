@@ -19,12 +19,12 @@ class MainMenu:
             self.directoryLabel.config(text=self.folder)
 
     def organizeFiles(self):
-        inputFolder = Organizer(self.folder)
+        inputFolder = Organizer(self.folder,self.db)
         inputFolder.organize()
+        self.showLogs()
 
     def showLogs(self):
-        for item in self.showTable.get_children():
-            self.showTable.delete(item)
+        self.showTable.delete(*self.showTable.get_children())
         logs = self.db.getLogs()
         for log in logs:
             self.showTable.insert("", "end", values=log)
@@ -36,7 +36,7 @@ class MainMenu:
         self.directorySelect = tk.Button(self.root,text="Change Directory", command=self.selectFolder)
         self.directorySelect.pack()
 
-        self.organizeButton = tk.Button(self.root,text="Click to organize!",command=lambda:self.organizeFiles()&self.showLogs())
+        self.organizeButton = tk.Button(self.root,text="Click to organize!",command=lambda:self.organizeFiles())
         self.organizeButton.pack()
 
         self.logsLabel=tk.Label(self.root,text="History Data",font=("Arial",30))

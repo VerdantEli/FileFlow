@@ -5,31 +5,29 @@ import datetime
 from src.database import Database
 
 class Organizer:
-    def __init__(self,path):
-        self.db=Database()
-        self.db.connect()
-        self.db.tableCreation()
-
+    def __init__(self,path,db):
+        self.db=db
         self.path = path
         self.extensions = {
-            "jpg": "Images", "png": "Images", "jpeg": "Images", 
-            "docx" : "Documents", "pptx" : "Documents", "xlsx" : "Documents", "pdf" : "Documents",
-            "mp3" : "Audio",
-            "mp4" : "Videos",
-            "zip" : "Archives", "rar" : "Archives",
-            "txt" : "TextFiles",
-            "exe" : "Executables"
+            "Images": ["jpg", "png", "jpeg"],
+            "Documents": ["docx", "pptx", "xlsx", "pdf"],
+            "Audio": ["mp3"],
+            "Videos": ["mp4"],
+            "Archives": ["zip", "rar"],
+            "TextFiles": ["txt"],
+            "Executables": ["exe"]
         }
 
     def organize(self):
-        for extension, folderName in self.extensions.items():
-            files = glob.glob(os.path.join(self.path, f"*.{extension}"))
-            if not os.path.isdir(os.path.join(self.path, folderName)) and files:
-                os.mkdir(os.path.join(self.path, folderName))
+        for folderName, extensions in self.extensions.items():
+            for ext in extensions:
+                files = glob.glob(os.path.join(self.path, f"*.{ext}"))
+                if not os.path.isdir(os.path.join(self.path, folderName)) and files:
+                    os.mkdir(os.path.join(self.path, folderName))
 
-            for file in files:
-                currentTime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                basename = os.path.basename(file)
-                dst = os.path.join(self.path, folderName, basename)
-                shutil.move(file, dst)
-                self.db.inputLogs(currentTime,"Moved!",basename,file,dst)
+                for file in files:
+                    currentTime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    basename = os.path.basename(file)
+                    dst = os.path.join(self.path, folderName, basename)
+                    shutil.move(file, dst)
+                    self.db.inputLogs(currentTime,"Moved!",basename,file,dst)
