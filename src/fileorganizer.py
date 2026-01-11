@@ -2,7 +2,7 @@ import os
 import glob
 import shutil
 import datetime
-from database import Database
+from src.database import Database
 
 class Organizer:
     def __init__(self,path):

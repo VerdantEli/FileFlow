@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog,ttk
-from fileorganizer import Organizer
-from database import Database
+from src.fileorganizer import Organizer
+from src.database import Database
 
 class MainMenu:
     def __init__(self, root):
@@ -36,7 +36,7 @@ class MainMenu:
         self.directorySelect = tk.Button(self.root,text="Change Directory", command=self.selectFolder)
         self.directorySelect.pack()
 
-        self.organizeButton = tk.Button(self.root,text="Click to organize!",command=self.organizeFiles)
+        self.organizeButton = tk.Button(self.root,text="Click to organize!",command=lambda:self.organizeFiles()&self.showLogs())
         self.organizeButton.pack()
 
         self.logsLabel=tk.Label(self.root,text="History Data",font=("Arial",30))
@@ -47,6 +47,3 @@ class MainMenu:
         for col in cols:
             self.showTable.heading(col,text=col)
         self.showTable.pack()
-
-        self.refreshButton = tk.Button(self.root, text="Refresh History", command=self.showLogs)
-        self.refreshButton.pack()

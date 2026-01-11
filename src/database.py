@@ -1,8 +1,16 @@
-import sqlite3
+import mysql.connector
 
 class Database:
     def connect(self):
-        self.connection = sqlite3.connect("organize.db")
+            self.connection = mysql.connector.connect(
+                host="localhost",
+                user="root",
+                password ="root"
+            )
+            cursor = self.connection.cursor()
+            cursor.execute("CREATE DATABASE IF NOT EXISTS logsDatabase")
+            cursor.execute("USE logsDatabase")
+            self.connection.commit()
 
     def tableCreation(self):
         cursor = self.connection.cursor()
@@ -20,13 +28,13 @@ class Database:
 
     def inputLogs(self,timestamp,status,fileName,fromPath,toPath):
         cursor = self.connection.cursor()
-        cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?)",(timestamp,status,fileName,fromPath,toPath))
+        cursor.execute("INSERT INTO logs VALUES (%s,%s,%s,%s,%s)",(timestamp,status,fileName,fromPath,toPath))
         self.connection.commit()
     
     def getLogs(self):
         cursor = self.connection.cursor()
         cursor.execute("SELECT * FROM logs ORDER BY timestamp DESC")
-        data = cursor.fetchmany(5)
+        data = cursor.fetchmany(10)
         return data
 
 

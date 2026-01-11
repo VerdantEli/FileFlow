@@ -1,5 +1,5 @@
 import tkinter as tk
-from gui import MainMenu
+from src.gui import MainMenu
 
 def main():
     root = tk.Tk()
@@ -7,7 +7,6 @@ def main():
     root.geometry("1200x800")
     interface = MainMenu(root)
     
-
     root.mainloop()
 
 if __name__ == "__main__":
