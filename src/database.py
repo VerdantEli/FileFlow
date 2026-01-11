@@ -8,6 +8,7 @@ class Database:
                 password ="root"
             )
             cursor = self.connection.cursor()
+            cursor.execute("drop database logsdatabase")
             cursor.execute("CREATE DATABASE IF NOT EXISTS logsDatabase")
             cursor.execute("USE logsDatabase")
             self.connection.commit()
@@ -20,16 +21,23 @@ class Database:
                 status TEXT,
                 fileName TEXT,
                 fromPath TEXT,
-                toPath TEXT
+                toPath TEXT,
+                fileHash TEXT
                 );
             """
         )
         self.connection.commit()
 
-    def inputLogs(self,timestamp,status,fileName,fromPath,toPath):
+    def inputLogs(self,timestamp,status,fileName,fromPath,toPath,fileHash):
         cursor = self.connection.cursor()
-        cursor.execute("INSERT INTO logs VALUES (%s,%s,%s,%s,%s)",(timestamp,status,fileName,fromPath,toPath))
+        cursor.execute("INSERT INTO logs VALUES (%s,%s,%s,%s,%s,%s)",(timestamp,status,fileName,fromPath,toPath,fileHash))
         self.connection.commit()
+    
+    def hash_exists(self, fileHash):
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT COUNT(*) FROM logs WHERE fileHash = %s", (fileHash,))
+        count = cursor.fetchone()[0]
+        return count > 0
     
     def getLogs(self):
         cursor = self.connection.cursor()
