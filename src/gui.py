@@ -1,6 +1,6 @@
 from pathlib import Path
 import tkinter as tk
-from tkinter import filedialog,ttk
+from tkinter import filedialog,ttk,font
 from src.fileorganizer import Organizer
 from src.database import Database
 
@@ -32,26 +32,38 @@ class MainMenu:
             
     def undo(self):
         inputFolder = Organizer(self.folder,self.db)
-        inputFolder.undo()
         self.showLogs()
+        self.showTable.delete(*self.showTable.get_children())
+        inputFolder.undo()
 
     def mainUI(self):
+        self.headerFont = font.Font(family= "Century Gothic",size=26)
+        self.textFont = font.Font(family="Century Gothic",size=12)
+
         self.directoryLabel=tk.Label(self.root,text=self.folder)
-        self.directoryLabel.pack()
-        self.directorySelect = tk.Button(self.root,text="Change Directory", command=self.selectFolder)
-        self.directorySelect.pack()
+        self.directoryLabel.config(bg="#222222",fg="white",font=self.headerFont)
+        self.directoryLabel.pack(side=tk.TOP,pady=10)
+        self.directorySelect = tk.Button(self.root,text="Change Directory", bg="#222222", fg="white",font=self.textFont,command=self.selectFolder)
+        self.directorySelect.pack(side=tk.TOP)
 
-        self.organizeButton = tk.Button(self.root,text="Click to organize!",command=lambda:self.organizeFiles())
-        self.organizeButton.pack()
+        self.buttonFrame = tk.Frame(self.root, bg="#222222")
+        self.buttonFrame.pack(side=tk.TOP, pady=10)
 
-        self.undoButton = tk.Button(self.root,text="Undo Last Action",command=lambda:self.undo())
-        self.undoButton.pack()
+        self.organizeButton = tk.Button(self.buttonFrame,text="Click to organize!", bg="#222222", font=self.textFont, fg="white", command=lambda:self.organizeFiles())
+        self.organizeButton.pack(side=tk.LEFT, padx=5)
 
-        self.logsLabel=tk.Label(self.root,text="History Data",font=("Arial",30))
-        self.logsLabel.pack()
+        self.undoButton = tk.Button(self.buttonFrame,text="Undo Last Action", bg="#222222",font=self.textFont,fg="white",command=lambda:self.undo())
+        self.undoButton.pack(side=tk.LEFT, padx=5)
+
+        self.logsLabel=tk.Label(self.root,text="History Data",bg="#222222",fg="white",font=self.headerFont)
+        self.logsLabel.pack(side=tk.TOP,pady=10)
         
         cols = ('Timestamp','Status','File Name', 'From Path', 'To Path')
-        self.showTable = ttk.Treeview(self.root,columns=cols,show='headings')
+        style = ttk.Style()
+        style.theme_use('clam')
+        style.configure("Treeview", background="#222222", foreground="white", fieldbackground="#222222")
+        style.configure("Treeview.Heading", background="#222222", foreground="white",font=self.textFont)
+        self.showTable = ttk.Treeview(self.root,columns=cols,show='headings', style="Treeview")
         for col in cols:
             self.showTable.heading(col,text=col)
-        self.showTable.pack()
+        self.showTable.pack(side=tk.TOP,fill=tk.BOTH,expand=True)
