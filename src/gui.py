@@ -32,9 +32,8 @@ class MainMenu:
             
     def undo(self):
         inputFolder = Organizer(self.folder,self.db)
-        self.showLogs()
-        self.showTable.delete(*self.showTable.get_children())
         inputFolder.undo()
+        self.showLogs()
 
     def mainUI(self):
         self.headerFont = font.Font(family= "Century Gothic",size=26)

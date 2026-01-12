@@ -22,7 +22,13 @@ class Database:
                 fileName TEXT,
                 fromPath TEXT,
                 toPath TEXT,
-                fileHash TEXT
+                fileHash VARCHAR(64)
+                );
+            """
+        )
+        cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hashes (
+                fileHash VARCHAR(64) PRIMARY KEY
                 );
             """
         )
@@ -33,9 +39,9 @@ class Database:
         cursor.execute("INSERT INTO logs VALUES (%s,%s,%s,%s,%s,%s)",(timestamp,status,fileName,fromPath,toPath,fileHash))
         self.connection.commit()
     
-    def hash_exists(self, fileHash):
+    def hashExists(self, fileHash):
         cursor = self.connection.cursor()
-        cursor.execute("SELECT COUNT(*) FROM logs WHERE fileHash = %s", (fileHash,))
+        cursor.execute("SELECT COUNT(*) FROM hashes WHERE fileHash = %s", (fileHash,))
         count = cursor.fetchone()[0]
         return count > 0
     
@@ -44,6 +50,16 @@ class Database:
         cursor.execute("SELECT * FROM logs ORDER BY timestamp DESC")
         data = cursor.fetchall()
         return data
+
+    def insertHash(self, fileHash):
+        cursor = self.connection.cursor()
+        cursor.execute("INSERT IGNORE INTO hashes VALUES (%s)", (fileHash,))
+        self.connection.commit()
+
+    def deleteHash(self, fileHash):
+        cursor = self.connection.cursor()
+        cursor.execute("DELETE FROM hashes WHERE fileHash = %s", (fileHash,))
+        self.connection.commit()
 
 
     def connectTerminate(self):
