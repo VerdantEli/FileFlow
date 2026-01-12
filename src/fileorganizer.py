@@ -2,6 +2,7 @@ import os
 import glob
 import shutil
 import datetime
+import time 
 import hashlib
 import tkinter as tk
 from src.database import Database
@@ -20,7 +21,7 @@ class Organizer:
             "Executables": ["exe"]
         }
 
-    def compute_hash(self, file_path):
+    def computeHash(self, file_path):
         hash_sha256 = hashlib.sha256()
         with open(file_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
@@ -38,19 +39,30 @@ class Organizer:
                     currentTime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     basename = os.path.basename(file)
                     dst = os.path.join(self.path, folderName, basename)
-                    file_hash = self.compute_hash(file)
-                    if self.db.hash_exists(file_hash):
+                    fileHash = self.computeHash(file)
+                    if self.db.hash_exists(fileHash):
                         choice = self.duplicateWindow()
                         if choice == "keep":
-                            self.db.inputLogs(currentTime, "Moving duplicate...", basename, file, "", file_hash)
+                            self.db.inputLogs(currentTime, "Moving duplicate...", basename, file, "", fileHash)
                         elif choice == "delete":
                             os.remove(file)
-                            self.db.inputLogs(currentTime, "Deleted duplicate", basename, file, "", file_hash)
+                            self.db.inputLogs(currentTime, "Deleted duplicate", basename, file, "", fileHash)
                             continue
                         else: #rename
                             pass
                     shutil.move(file, dst)
-                    self.db.inputLogs(currentTime,"Moved!",basename,file,dst,file_hash)
+                    self.db.inputLogs(currentTime,"Moved!",basename,file,dst,fileHash)
+
+    def undo(self):
+        logs = self.db.getLogs()
+        for log in reversed(logs):
+            timestamp, status, fileName, fromPath, toPath, fileHash = log[0], log[1], log[2], log[3], log[4], log[5]
+            if status == "Moved!" or status == "Moving duplicate...":
+                if fromPath and toPath:
+                    shutil.move(toPath, fromPath)
+                    self.db.inputLogs(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "Undo Move", fileName, toPath, fromPath, fileHash)
+            elif status == "Deleted duplicate":
+                pass
 
     def duplicateWindow(self):
         root = tk.Toplevel()
@@ -60,23 +72,21 @@ class Organizer:
         label = tk.Label(root, text="Duplicate file detected. Choose an action:")
         label.pack(pady=10)
         
-        # Variables to track user choice
-        choice = tk.StringVar(value="keep")  # Default to keep
+        choice = tk.StringVar(value="keep")
         
-        def set_choice(c):
+        def setChoice(c):
             choice.set(c)
             root.destroy()
         
-        keep_btn = tk.Button(root, text="Keep (skip)", command=lambda: set_choice("keep"))
-        keep_btn.pack(pady=5)
+        keepButton = tk.Button(root, text="Keep (skip)", command=lambda: setChoice("keep"))
+        keepButton.pack(pady=5)
         
-        rename_btn = tk.Button(root, text="Rename", command=lambda: set_choice("rename"))
-        rename_btn.pack(pady=5)
-        
-        delete_btn = tk.Button(root, text="Delete", command=lambda: set_choice("delete"))
-        delete_btn.pack(pady=5)
-        
-        # Make it modal
+        renameButton = tk.Button(root, text="Rename", command=lambda: setChoice("rename"))
+        renameButton.pack(pady=5)
+
+        deleteButton = tk.Button(root, text="Delete", command=lambda: setChoice("delete"))
+        deleteButton.pack(pady=5)
+
         root.grab_set()
         root.wait_window(root)
         

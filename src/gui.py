@@ -1,3 +1,4 @@
+from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog,ttk
 from src.fileorganizer import Organizer
@@ -6,7 +7,7 @@ from src.database import Database
 class MainMenu:
     def __init__(self, root):
         self.root = root
-        self.folder= "None"
+        self.folder= Path.home() / "Downloads"
         self.db=Database()
         self.db.connect()
         self.db.tableCreation()
@@ -29,6 +30,10 @@ class MainMenu:
         for log in logs:
             self.showTable.insert("", "end", values=log)
             
+    def undo(self):
+        inputFolder = Organizer(self.folder,self.db)
+        inputFolder.undo()
+        self.showLogs()
 
     def mainUI(self):
         self.directoryLabel=tk.Label(self.root,text=self.folder)
@@ -38,6 +43,9 @@ class MainMenu:
 
         self.organizeButton = tk.Button(self.root,text="Click to organize!",command=lambda:self.organizeFiles())
         self.organizeButton.pack()
+
+        self.undoButton = tk.Button(self.root,text="Undo Last Action",command=lambda:self.undo())
+        self.undoButton.pack()
 
         self.logsLabel=tk.Label(self.root,text="History Data",font=("Arial",30))
         self.logsLabel.pack()
