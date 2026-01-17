@@ -5,10 +5,11 @@ import datetime
 import hashlib
 import tkinter as tk
 import time
+import sqlite3
 from src.database import Database
 
 class Organizer:
-    def __init__(self,path,db):
+    def __init__(self,path,db,status = None, duplicateCallback=None,progressCallback=None):
         self.db=db
         self.path = path
         self.extensions = {
@@ -20,15 +21,25 @@ class Organizer:
             "TextFiles": ["txt"],
             "Executables": ["exe"]
         }
-
-    def computeHash(self, file_path):
-        sha256 = hashlib.sha256()
-        with open(file_path, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                sha256.update(chunk)
-        return sha256.hexdigest()
+        self.status=status
+        self.duplicateCallback=duplicateCallback
+        self.progressCallback=progressCallback
+        
 
     def organize(self):
+        self.connection = sqlite3.connect(self.db.path)
+        cursor = self.connection.cursor()
+
+        allFiles = []
+        for folderName, extensions in self.extensions.items():
+            for ext in extensions:
+                files = glob.glob(os.path.join(self.path, f"*.{ext}"))
+                for file in files:
+                    allFiles.append(file)
+
+        totalFiles = len(allFiles)
+        processedFiles = 0
+        
         for folderName, extensions in self.extensions.items():
             for ext in extensions:
                 files = glob.glob(os.path.join(self.path, f"*.{ext}"))
@@ -40,94 +51,89 @@ class Organizer:
                     basename = os.path.basename(file)
                     dst = os.path.join(self.path, folderName, basename)
                     fileHash = self.computeHash(file)
-                    if self.db.hashExists(fileHash):
-                        choice = self.duplicateWindow(file)
+                    cursor.execute("SELECT COUNT(*) FROM hashes WHERE fileHash=?", (fileHash,))
+                    exists = cursor.fetchone()[0] > 0 #if hash exists in db
+
+                    # Move file if not duplicate
+                    if not exists:
+                        cursor.execute("INSERT OR IGNORE INTO hashes VALUES (?)", (fileHash,))
+                        shutil.move(file, dst)
+                        cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(currentTime,"Moved!",basename,file,dst,fileHash))
+                        self.connection.commit()
+                    else:
+                        # Handle duplicates
+                        choice = self.duplicateCallback(file)
+
                         if choice == "keep":
-                            self.db.inputLogs(currentTime, "Moving duplicate...", basename, file, dst, fileHash)
+                            shutil.move(file, dst)
+                            cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(currentTime,"Moving duplicate...",basename,file,dst,fileHash))
+                            self.connection.commit()
                         elif choice == "delete":
                             os.remove(file)
-                            self.db.inputLogs(currentTime, "Deleted duplicate", basename, file, "", fileHash)
-                            continue
-                        elif choice != "keep" and choice != "delete":
+                            cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(currentTime,"Deleted duplicate",basename,file,"",fileHash))
+                            self.connection.commit()
+                        else: # rename
                             extension = os.path.splitext(file)[1]
                             basename = choice + extension
                             dst = os.path.join(self.path, folderName, basename)
-                    else:
-                        self.db.insertHash(fileHash)
-                    shutil.move(file, dst)
-                    self.db.inputLogs(currentTime,"Moved!",basename,file,dst,fileHash)
-                    time.sleep(0.2)
+
+                            shutil.move(file, dst)
+                            cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(currentTime,"Renamed duplicate",basename,file,dst,fileHash))                        
+                    processedFiles += 1
+                    if self.progressCallback:
+                        self.progressCallback(processedFiles, totalFiles)
+                    self.connection.commit()
+                    self.giveStatus("Yes")
+                    time.sleep(0.3)
 
     def undo(self):
-        logs = self.db.getLogs()
+        self.connection = sqlite3.connect(self.db.path)
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT * FROM logs ORDER BY timestamp DESC")
+        logs = cursor.fetchall()
+
+        allFiles = len(logs)
+        processedFiles = 0
+
         for log in reversed(logs):
             timestamp, status, fileName, fromPath, toPath, fileHash = log[0], log[1], log[2], log[3], log[4], log[5]
             if status == "Moved!":
                 if fromPath and toPath and os.path.exists(toPath):
                     shutil.move(toPath, fromPath)
-                    self.db.inputLogs(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "Undo Move", fileName, toPath, fromPath, fileHash)
-                    self.db.deleteHash(fileHash)
+                    cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "Undo Move", fileName, toPath, fromPath, fileHash))
+                    self.connection.commit()
             elif status == "Moving duplicate...":
                 if fromPath and toPath and os.path.exists(toPath):
                     shutil.move(toPath, fromPath)
-                    self.db.inputLogs(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "Undo Move", fileName, toPath, fromPath, fileHash)
-                    self.db.deleteHash(fileHash)
+                    cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "Undo Move", fileName, toPath, fromPath, fileHash))
+                    self.connection.commit()
+            elif status == "Renamed duplicate":
+                if fromPath and toPath and os.path.exists(toPath):
+                    shutil.move(toPath, fromPath)
+                    cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),"Undo Rename", fileName, toPath, fromPath, fileHash))
+                    self.connection.commit()
             elif status == "Deleted duplicate":
                 pass
 
-    def duplicateWindow(self,fileName=""):
-        root = tk.Toplevel()
-        root.geometry("400x200")
-        root.configure(bg="#222222")
-        root.title("Duplicate Detected")
-
-        nameLabel = tk.Label(root, text=f"File: {os.path.basename(fileName)}", bg="#222222", fg="white")
-        nameLabel.pack(pady=10)
-
-        label = tk.Label(root, text="Duplicate file detected. Choose an action:",bg="#222222",fg="white")
-        label.pack(pady=10)
+            cursor.execute("DELETE FROM hashes WHERE fileHash=?", (fileHash,))
+            self.connection.commit()
+            processedFiles += 1
+            if self.progressCallback:
+                self.progressCallback(processedFiles, allFiles)
         
-        choice = tk.StringVar(value="keep")
-        
-        def setChoice(value):
-            choice.set(value)
-            root.destroy()
-        
-        keepButton = tk.Button(root, text="Keep (skip)", bg="#222222", fg="white", command=lambda: setChoice("keep"))
-        keepButton.pack(pady=5)
-        
-        renameButton = tk.Button(root, text="Rename", bg="#222222", fg="white", command=lambda: setChoice("rename"))
-        renameButton.pack(padx=5)
+            if self.status:
+                self.status("Yes")
+            time.sleep(0.3)
 
-        deleteButton = tk.Button(root, text="Delete", bg="#222222", fg="white", command=lambda: setChoice("delete"))
-        deleteButton.pack(padx=5)
+    # Helper to give status updates
+    def giveStatus(self, message):
+        if self.status:
+            self.status(message)
 
-        root.grab_set()
-        root.wait_window(root)
 
-        if choice.get() == "rename":
-            newName = self.renameWindow()
-            choice.set(newName)
-        
-        return choice.get()
-    
-    def renameWindow(self):
-        root = tk.Toplevel()
-        root.geometry("300x100")
-        root.configure(bg="#222222")
-        root.title("Rename File")
-
-        label = tk.Label(root, text="Enter new file name:", bg="#222222", fg="white")
-        label.pack(pady=10)
-        entry = tk.Entry(root)
-        entry.pack(pady=5)
-        newName = ""
-        def submit():
-            nonlocal newName
-            newName = entry.get()
-            root.destroy()
-        submitButton = tk.Button(root, text="Submit", bg="#222222", fg="white", command=submit)
-        submitButton.pack(pady=5)
-        root.grab_set()
-        root.wait_window(root)  
-        return newName
+    def computeHash(self, file_path):
+        sha256 = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                sha256.update(chunk)
+        return sha256.hexdigest()

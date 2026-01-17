@@ -1,16 +1,24 @@
-import mysql.connector
+import sqlite3
+from pathlib import Path
 
 class Database:
+    def __init__(self,path=None):
+        self.path = path
+        if path is None:
+            self.path = Path.home() / ".config" / "Fileflow" / "logsDatabase.db"
+        else:
+            self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+
+    def getConnection(self):
+        connection = sqlite3.connect(self.path)
+        return connection
+
     def connect(self):
-            self.connection = mysql.connector.connect(
-                host="localhost",
-                user="root",
-                password ="root"
-            )
+            self.connection = sqlite3.connect(self.path)
             cursor = self.connection.cursor()
-            cursor.execute("drop database logsdatabase")
-            cursor.execute("CREATE DATABASE IF NOT EXISTS logsDatabase")
-            cursor.execute("USE logsDatabase")
+            cursor.execute("DROP TABLE IF EXISTS logs")
+            cursor.execute("DROP TABLE IF EXISTS hashes")
             self.connection.commit()
 
     def tableCreation(self):
@@ -36,12 +44,12 @@ class Database:
 
     def inputLogs(self,timestamp,status,fileName,fromPath,toPath,fileHash):
         cursor = self.connection.cursor()
-        cursor.execute("INSERT INTO logs VALUES (%s,%s,%s,%s,%s,%s)",(timestamp,status,fileName,fromPath,toPath,fileHash))
+        cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(timestamp,status,fileName,fromPath,toPath,fileHash))
         self.connection.commit()
     
     def hashExists(self, fileHash):
         cursor = self.connection.cursor()
-        cursor.execute("SELECT COUNT(*) FROM hashes WHERE fileHash = %s", (fileHash,))
+        cursor.execute("SELECT COUNT(*) FROM hashes WHERE fileHash = ?", (fileHash,))
         count = cursor.fetchone()[0]
         return count > 0
     
@@ -50,17 +58,6 @@ class Database:
         cursor.execute("SELECT * FROM logs ORDER BY timestamp DESC")
         data = cursor.fetchall()
         return data
-
-    def insertHash(self, fileHash):
-        cursor = self.connection.cursor()
-        cursor.execute("INSERT IGNORE INTO hashes VALUES (%s)", (fileHash,))
-        self.connection.commit()
-
-    def deleteHash(self, fileHash):
-        cursor = self.connection.cursor()
-        cursor.execute("DELETE FROM hashes WHERE fileHash = %s", (fileHash,))
-        self.connection.commit()
-
 
     def connectTerminate(self):
         self.connection.close()
