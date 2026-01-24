@@ -61,3 +61,8 @@ class Database:
 
     def connectTerminate(self):
         self.connection.close()
+    
+    def errorLog(self,timestamp,status,fileName,fromPath,toPath,fileHash):
+        cursor = self.connection.cursor()
+        cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(timestamp,status,fileName,fromPath,toPath,fileHash))
+        self.connection.commit()

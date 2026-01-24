@@ -6,6 +6,7 @@ import threading
 from tkinter import filedialog,ttk,font
 from src.fileorganizer import Organizer
 from src.database import Database
+from src.settings import Settings
 
 class MainMenu:
     def __init__(self, root):
@@ -14,6 +15,7 @@ class MainMenu:
         self.db=Database()
         self.db.connect()
         self.db.tableCreation()
+        self.settings = Settings(self.root)
         self.mainUI()
 
     def selectFolder(self):
@@ -67,6 +69,9 @@ class MainMenu:
 
         self.undoButton = tk.Button(self.buttonFrame,text="Undo Last Action", bg="#222222",font=self.textFont,fg="white",command=lambda:self.undo())
         self.undoButton.pack(side=tk.LEFT, padx=5)
+
+        self.settingsButton = tk.Button(self.buttonFrame,text="Settings", bg="#222222", font=self.textFont, fg="white", command=lambda:self.openSettings())
+        self.settingsButton.pack(side=tk.LEFT, padx=5)
 
         self.progressBar = ttk.Progressbar(self.root, mode='determinate',style="green.Horizontal.TProgressbar")
         self.progressBar.pack(side=tk.TOP, fill=tk.X, padx=20, pady=10)
@@ -145,3 +150,9 @@ class MainMenu:
         root.grab_set()
         root.wait_window(root)  
         return newName
+    
+    def openSettings(self):
+        settings = Settings(self.root)
+        settings.openSettings()
+
+

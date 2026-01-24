@@ -6,21 +6,47 @@ import hashlib
 import tkinter as tk
 import time
 import sqlite3
-from src.database import Database
+import configparser
+from pathlib import Path
+from .database import Database
+
+SETTINGS_FILE = Path.home() / ".config" / "Fileflow" / "settings.ini"
+
+def loadExtensionsFromSettings():
+    """Load extensions from settings.ini"""
+    DEFAULT_EXTENSIONS = {
+        "Images": ["jpg", "png", "jpeg"],
+        "Documents": ["docx", "pptx", "xlsx", "pdf"],
+        "Audio": ["mp3"],
+        "Videos": ["mp4"],
+        "Archives": ["zip", "rar"],
+        "TextFiles": ["txt"],
+        "Executables": ["exe"]
+    }
+    
+    if os.path.exists(SETTINGS_FILE):
+        config = configparser.ConfigParser()
+        config.read(SETTINGS_FILE)
+        if 'EXTENSIONS' in config:
+            extensions = {k: v.split(', ') for k, v in config['EXTENSIONS'].items()}
+            # Map lowercase keys to original case
+            temp = {}
+            for key_lower, value in extensions.items():
+                for key_orig in DEFAULT_EXTENSIONS.keys():
+                    if key_orig.lower() == key_lower:
+                        temp[key_orig] = value
+                        break
+                else:
+                    temp[key_lower] = value
+            return temp
+    
+    return DEFAULT_EXTENSIONS
 
 class Organizer:
-    def __init__(self,path,db,status = None, duplicateCallback=None,progressCallback=None):
+    def __init__(self,path,db,status = None, duplicateCallback=None,progressCallback=None, extensions=None):
         self.db=db
         self.path = path
-        self.extensions = {
-            "Images": ["jpg", "png", "jpeg"],
-            "Documents": ["docx", "pptx", "xlsx", "pdf"],
-            "Audio": ["mp3"],
-            "Videos": ["mp4"],
-            "Archives": ["zip", "rar"],
-            "TextFiles": ["txt"],
-            "Executables": ["exe"]
-        }
+        self.extensions = extensions if extensions is not None else loadExtensionsFromSettings()
         self.status=status
         self.duplicateCallback=duplicateCallback
         self.progressCallback=progressCallback
@@ -137,3 +163,5 @@ class Organizer:
             for chunk in iter(lambda: f.read(4096), b""):
                 sha256.update(chunk)
         return sha256.hexdigest()
+
+    
