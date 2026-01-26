@@ -34,10 +34,16 @@ class MainMenu:
 
     def onStatus(self,message):
         if message == "Yes":
-            self.root.after(0, self.showLogs)
+            try:
+                self.root.after(0, self.showLogs)
+            except RuntimeError:
+                pass
 
     def processCallback(self, processed, total):
-        self.root.after(0, self._updateProgress, processed, total)
+        try:
+            self.root.after(0, self._updateProgress, processed, total)
+        except RuntimeError:
+            pass
 
     def showLogs(self):
         # Clear existing entries and show updated logs
@@ -50,7 +56,7 @@ class MainMenu:
     def mainUI(self):
         style = ttk.Style()
         style.theme_use('clam')
-        style.configure("green.Horizontal.TProgressbar", foreground="#B8FFC7", background='#B8FFC7')
+        style.configure("green.Horizontal.TProgressbar", foreground="#06AA2A", background='#06AA2A')
 
         self.headerFont = font.Font(family= "Century Gothic",size=26)
         self.textFont = font.Font(family="Century Gothic",size=12)
