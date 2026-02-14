@@ -15,7 +15,7 @@ SETTINGS_FILE = Path.home() / ".config" / "Fileflow" / "settings.ini"
 def loadExtensionsFromSettings():
     """Load extensions from settings.ini"""
     DEFAULT_EXTENSIONS = {
-        "Images": ["jpg", "png", "jpeg"],
+        "Pictures": ["jpg", "png", "jpeg"],
         "Documents": ["docx", "pptx", "xlsx", "pdf"],
         "Audio": ["mp3"],
         "Videos": ["mp4"],
@@ -66,19 +66,28 @@ class Organizer:
         totalFiles = len(allFiles)
         processedFiles = 0
         
+        if totalFiles > 0:
+            cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "Starting Move...", "", "", "", ""))
+            self.connection.commit()
+            self.giveStatus("Yes")
+            time.sleep(1)
+
+
         for folderName, extensions in self.extensions.items():
             for ext in extensions:
                 files = glob.glob(os.path.join(self.path, f"*.{ext}"))
-                if not os.path.isdir(os.path.join(self.path, folderName)) and files:
-                    os.mkdir(os.path.join(self.path, folderName))
+                if not os.path.isdir(os.path.join(Path.home(), folderName)) and files:
+                    os.mkdir(os.path.join(Path.home(), folderName))
 
                 for file in files:
                     currentTime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     basename = os.path.basename(file)
-                    dst = os.path.join(self.path, folderName, basename)
+                    dst = os.path.join(Path.home(), folderName, basename)
                     fileHash = self.computeHash(file)
+
+                    #if hash exists in db
                     cursor.execute("SELECT COUNT(*) FROM hashes WHERE fileHash=?", (fileHash,))
-                    exists = cursor.fetchone()[0] > 0 #if hash exists in db
+                    exists = cursor.fetchone()[0] > 0 
 
                     # Move file if not duplicate
                     if not exists:
@@ -86,6 +95,7 @@ class Organizer:
                         shutil.move(file, dst)
                         cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(currentTime,"Moved!",basename,file,dst,fileHash))
                         self.connection.commit()
+                        
                     else:
                         # Handle duplicates
                         choice = self.duplicateCallback(file)
@@ -110,52 +120,73 @@ class Organizer:
                         self.progressCallback(processedFiles, totalFiles)
                     self.connection.commit()
                     self.giveStatus("Yes")
-                    time.sleep(0.3)
+                    time.sleep(0.2)
+
+    def undoCounter(self):
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT * FROM logs ORDER BY timestamp DESC")
+        logs = cursor.fetchall()
+        
+        count = 0
+        for log in logs:
+            status = log[1]
+            if status == "Starting Move...":
+                break
+            if status in ("Moved!", "Moving duplicate...", "Renamed duplicate", "Deleted duplicate"):
+                count += 1
+        return count
 
     def undo(self):
         self.connection = sqlite3.connect(self.db.path)
         cursor = self.connection.cursor()
+        
         cursor.execute("SELECT * FROM logs ORDER BY timestamp DESC")
         logs = cursor.fetchall()
 
-        allFiles = len(logs)
+        allFiles = self.undoCounter()
         processedFiles = 0
 
-        for log in reversed(logs):
+        if allFiles >= 0:
+            cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "Starting Undo...", "", "", "", ""))
+            self.connection.commit()
+            self.giveStatus("Yes")
+            time.sleep(1)
+
+        for log in logs:
             timestamp, status, fileName, fromPath, toPath, fileHash = log[0], log[1], log[2], log[3], log[4], log[5]
+            
+            if status == "Starting Move...":
+                break
+            
             if status == "Moved!":
                 if fromPath and toPath and os.path.exists(toPath):
                     shutil.move(toPath, fromPath)
                     cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "Undo Move", fileName, toPath, fromPath, fileHash))
+                    cursor.execute("DELETE FROM hashes WHERE fileHash=?", (fileHash,))
                     self.connection.commit()
             elif status == "Moving duplicate...":
                 if fromPath and toPath and os.path.exists(toPath):
                     shutil.move(toPath, fromPath)
                     cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "Undo Move", fileName, toPath, fromPath, fileHash))
+                    cursor.execute("DELETE FROM hashes WHERE fileHash=?", (fileHash,))
                     self.connection.commit()
             elif status == "Renamed duplicate":
                 if fromPath and toPath and os.path.exists(toPath):
                     shutil.move(toPath, fromPath)
                     cursor.execute("INSERT INTO logs VALUES (?,?,?,?,?,?)",(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),"Undo Rename", fileName, toPath, fromPath, fileHash))
+                    cursor.execute("DELETE FROM hashes WHERE fileHash=?", (fileHash,))
                     self.connection.commit()
-            elif status == "Deleted duplicate":
-                pass
-
-            cursor.execute("DELETE FROM hashes WHERE fileHash=?", (fileHash,))
-            self.connection.commit()
+            
             processedFiles += 1
             if self.progressCallback:
                 self.progressCallback(processedFiles, allFiles)
-        
             if self.status:
                 self.status("Yes")
             time.sleep(0.3)
 
-    # Helper to give status updates
     def giveStatus(self, message):
         if self.status:
             self.status(message)
-
 
     def computeHash(self, file_path):
         sha256 = hashlib.sha256()

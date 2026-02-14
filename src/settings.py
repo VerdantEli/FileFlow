@@ -9,7 +9,7 @@ SETTINGS_FILE = Path.home() / ".config" / "Fileflow" / "settings.ini"
 
 class Settings:
     DEFAULT_EXTENSIONS = {
-            "Images": ["jpg", "png", "jpeg"],
+            "Pictures": ["jpg", "png", "jpeg"],
             "Documents": ["docx", "pptx", "xlsx", "pdf"],
             "Audio": ["mp3"],
             "Videos": ["mp4"],

@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import datetime
 import time
 import tkinter as tk
 import threading
@@ -46,7 +47,6 @@ class MainMenu:
             pass
 
     def showLogs(self):
-        # Clear existing entries and show updated logs
         self.showTable.delete(*self.showTable.get_children())
         logs = self.db.getLogs()
         for log in logs:
