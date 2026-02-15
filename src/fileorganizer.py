@@ -4,6 +4,7 @@ import shutil
 import datetime
 import hashlib
 import tkinter as tk
+from tkinter import messagebox
 import time
 import sqlite3
 import configparser
@@ -50,9 +51,43 @@ class Organizer:
         self.status=status
         self.duplicateCallback=duplicateCallback
         self.progressCallback=progressCallback
+    
+    def isValidPath(self):
+        """Check if path on C: drive is one of the allowed directories in the correct location"""
+        drive = os.path.splitdrive(self.path)[0].upper()
+        
+        # If not on C: drive, allow it
+        if drive != "C:":
+            return True
+        
+        # If on C: drive, check if it matches C:\Users\{username}\{allowed_directory}
+        allowed_dirs = {"DESKTOP", "DOWNLOADS", "DOCUMENTS", "PICTURES", "MUSIC", "VIDEOS"}
+        
+        # Normalize path
+        normalized_path = os.path.normpath(self.path).upper()
+        
+        # Get the path parts
+        path_parts = normalized_path.split("\\")
+        
+        # Should be at least: C:, Users, {username}, {directory}
+        if len(path_parts) < 4:
+            return False
+        
+        # Check if it follows C:\Users\{username}\{directory}
+        if path_parts[0] != "C:" or path_parts[1] != "USERS":
+            return False
+        
+        # Check if the directory is one of the allowed ones
+        directory = path_parts[3].upper()
+        return directory in allowed_dirs
         
 
     def organize(self):
+        # Validate path restrictions on C: drive
+        if not self.isValidPath():
+            messagebox.showerror("Invalid Directory", "Directory on C: drive must be one of: Desktop, Downloads, Documents, Pictures, Music, or Videos")
+            return
+        
         self.connection = sqlite3.connect(self.db.path)
         cursor = self.connection.cursor()
 
